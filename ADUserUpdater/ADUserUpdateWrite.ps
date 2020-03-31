@@ -1,0 +1,59 @@
+
+$Session = New-PSSession -ComputerName adsrv
+Invoke-Command -Session $Session -Command {
+    $SID = $args[0]
+    $Name = $args[1]
+    $Surname = $args[2]
+    $TitlePL = $args[3]
+    $TitleEN = $args[4]
+    $Phone = $args[5]
+    $ManagerEmail = $args[6]
+
+    try{
+        if($Name -ne ""){
+            Set-ADUser -Identity $SID -GivenName $Name
+            Write-Output("Name succesfully changed")
+        }
+
+        if($Surname -ne ""){
+            Set-ADUser -Identity $SID -Surname $Surname
+            Write-Output("Surname succesfully changed")
+        }
+
+        if($TitlePL -ne ""){
+            Set-ADUser -Identity $SID -Title $TitlePL
+            Write-Output("TitlePL succesfully changed")
+        }
+
+        if($TitleEN -ne ""){
+            $User = Get-ADUser -Filter {SID -eq $SID}
+
+            $Session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri http://ExchangeMB/PowerShell/ -Authentication Kerberos # -Credential $Credential
+            $o = Import-PSSession -Session $Session -DisableNameChecking -CommandName Get-Mailbox, Set-Mailbox -AllowClobber
+        
+            Set-Mailbox -Identity $User.UserPrincipalName -CustomAttribute1 $TitleEN
+            Write-Output("TitleEN succesfully changed")
+
+            Remove-PSSession -Session $Session
+        }
+        
+        if($Phone -ne ""){
+            Set-ADUser -Identity $SID -MobilePhone $Phone
+            Write-Output("Phone number succesfully changed")
+        }
+
+        if($ManagerEmail -ne ""){
+            $Manager = Get-ADUser -Filter {EmailAddress -eq $ManagerEmail} -Properties *
+            if($Manager -eq $null){
+                Write-Output("Error: Manager account [" + $ManagerEmail + "] not found")
+            }elseif($User.Manager -ne $Manager){
+                Set-ADUser -Identity $SID -Manager $Manager
+                Write-Output("Manager succesfully changed")
+            }
+        }
+    }catch{
+        $_.Exception
+    }
+}
+Remove-PSSession $Session
+

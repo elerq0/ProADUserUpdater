@@ -1,0 +1,22 @@
+
+$Session = New-PSSession -ComputerName adsrv
+Invoke-Command -Session $Session -Command {
+    $Email = $args[0]
+
+    $User = Get-ADUser -Filter {EmailAddress -eq $Email} -Properties *
+        if($User -eq $null){
+            throw "User not found"
+        }
+    $User
+    $Manager = Get-ADUser -Filter {DistinguishedName -eq $User.Manager} -Properties * 
+    $Manager.EmailAddress
+
+    $SessionEx = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri http://ExchangeMB/PowerShell/ -Authentication Kerberos # -Credential $Credential
+    $o = Import-PSSession -Session $SessionEx -DisableNameChecking -CommandName Get-Mailbox, -AllowClobber
+
+    (Get-Mailbox -Identity $User.UserPrincipalName).CustomAttribute1
+
+    Remove-PSSession -Session $SessionEx
+}
+Remove-PSSession $Session
+
